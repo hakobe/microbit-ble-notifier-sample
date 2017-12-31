@@ -1,51 +1,19 @@
 'use strict';
 
 const BBCMicrobit = require('bbc-microbit');
-const express = require('express')
+const Twitter = require('twitter');
+const throttle = require('throttle-debounce/throttle');
 
 //
-var PATTERNS = [
-  {
-    name: 'Blank',
-    value: Buffer.from('0000000000', 'hex')
-  },
-  {
-    name: 'Arrow up right',
-    value: Buffer.from('0F03050910', 'hex')
-  },
-  {
-    name: 'Arrow down left',
-    value: Buffer.from('011214181E', 'hex')
-  },
-  {
-    name: 'Arrow down right',
-    value: Buffer.from('100905030F', 'hex')
-  },
-  {
-    name: 'Arrow down left',
-    value: Buffer.from('011214181E', 'hex')
-  },
-  {
-    name: 'Arrow up left',
-    value: Buffer.from('1E18141201', 'hex')
-  },
-  {
-    name: 'Diamond',
-    value: Buffer.from('040A110A04', 'hex')
-  },
-  {
-    name: 'Smile',
-    value: Buffer.from('0A0A00110E', 'hex')
-  },
-  {
-    name: 'Wink',
-    value: Buffer.from('080B00110E', 'hex')
-  },
-  {
-    name: 'Solid',
-    value: Buffer.from('1F1F1F1F1F', 'hex')
-  },
-];
+const PatternBlank = {
+  name: 'Blank',
+  value: Buffer.from('0000000000', 'hex')
+};
+
+const PatternSmile = {
+  name: 'Smile',
+  value: Buffer.from('0A0A00110E', 'hex')
+};
 
 const discover = () => new Promise((resolve) => {
   BBCMicrobit.discover((microbit) => {
@@ -58,15 +26,29 @@ const connectAndSetUp = (microbit) => new Promise((resolve) => {
 });
 
 const writeLedMatrixState = (microbit, pattern) => new Promise((resolve) => {
-  console.log('sending pattern: "%s"', pattern.name);
   microbit.writeLedMatrixState(pattern.value, () => {
     resolve(pattern);
   });
 });
 
-const randomPattern = () => {
-  const patternIndex = Math.floor((Math.random() * PATTERNS.length)); // choose a random pattern
-  return PATTERNS[patternIndex];
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const watch = (keyword, handler) => {
+  const client = new Twitter({
+    consumer_key: process.env.TWITTER_CONSUMER_KEY,
+    consumer_secret: process.env.TWITTER_CONSUMER_SECRET,
+    access_token_key: process.env.TWITTER_ACCESS_TOKEN_KEY,
+    access_token_secret: process.env.TWITTER_ACCESS_TOKEN_SECRET
+  });
+
+  const throttled = throttle(5000, (event) => {
+    handler(event);
+  });
+
+  client.stream('statuses/filter', {track: keyword}, (stream) => {
+    stream.on('data', throttled);
+    stream.on('error', (error) => {throw error;});
+  });
 };
 
 const run = async() => {
@@ -86,14 +68,18 @@ const run = async() => {
 
   await connectAndSetUp(microbit);
 
-  const app = express()
-  app.get('/', async(req, res) => {
-    const pattern = await writeLedMatrixState(microbit, randomPattern());
-    res.send(`sent ${pattern.name}`);
-  })
-
-  console.log('started at :3000');
-  app.listen(3000)
+  watch(process.argv[2], async(event) => {
+    console.log('\n\n########## Received event ##########');
+    if (event) {
+      console.log(`\t${event.text}`);
+    }
+    for (let i = 0; i < 5; i++) {
+      await writeLedMatrixState(microbit, PatternSmile);
+      await sleep(100);
+      await writeLedMatrixState(microbit, PatternBlank);
+      await sleep(50);
+    }
+  });
 };
 
 run();

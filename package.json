@@ -2,7 +2,9 @@
   "dependencies": {
     "bbc-microbit": "^0.2.0",
     "express": "^4.16.2",
-    "noble": "git://github.com/jacobrosenthal/noble.git#highsierra"
+    "noble": "git://github.com/jacobrosenthal/noble.git#highsierra",
+    "throttle-debounce": "^1.0.1",
+    "twitter": "^1.7.1"
   },
   "devDependencies": {
     "eslint": "^4.14.0",
