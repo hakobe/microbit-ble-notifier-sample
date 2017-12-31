@@ -1,0 +1,14 @@
+{
+    "plugins": ["node"],
+    "extends": ["eslint:recommended", "plugin:node/recommended"],
+    "env": {
+        "node": true
+    },
+    "rules" : {
+        "no-console": 0,
+        "node/no-unsupported-features": ["error", {
+            "version": 8,
+            "ignores": []
+        }]
+    }
+}
